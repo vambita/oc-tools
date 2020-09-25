@@ -1,0 +1,78 @@
+version: "2"
+
+services:
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: local-nexus
+    networks:
+      - ci-cd-local
+    ports:
+      - "8183:8081"
+    volumes:
+      - nexus_data:/nexus-data
+    mem_limit: 4g
+  jenkins:
+    image: jenkins/jenkins:latest
+    container_name: local-jenkins
+    environment:
+      - JENKINS_VERSION=2.258
+    depends_on:
+      - sonar-qube
+      - nexus
+    networks:
+      - ci-cd-local
+    ports:
+      - "8181:8080"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    mem_limit: 4g
+  sonar-qube:
+    image: sonarqube:latest
+    container_name: local-sonarqube
+    depends_on:
+      - sonar-db
+    ports:
+      - "8182:9000"
+    networks:
+      - ci-cd-local
+    environment:
+      - sonar.jdbc.username=sonar
+      - sonar.jdbc.password=sonar
+      - sonar.jdbc.url=jdbc:postgresql://sonar-db:5432/sonar
+      - sonar.search.javaAdditionalOpts=-Dbootstrap.system_call_filter=false
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_temp:/opt/sonarqube/temp
+    mem_limit: 4g
+    ulimits:
+      nofile:
+          soft: 65536
+          hard: 65536
+  sonar-db:
+    image: postgres
+    container_name: local-sonarqube-database
+    networks:
+      - ci-cd-local
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+    volumes:
+      - postgresql:/var/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
+
+networks:
+  ci-cd-local:
+    driver: bridge
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  sonarqube_temp:
+  postgresql:
+  postgresql_data:
+  jenkins_data:
+  nexus_data:
